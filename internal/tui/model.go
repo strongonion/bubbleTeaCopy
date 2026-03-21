@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -111,7 +112,14 @@ type uiModel struct {
 
 func Run(tasks []model.Task, workers int) ([]model.Task, error) {
 	ui := newModel(tasks, workers)
-	program := tea.NewProgram(ui)
+	var opts []tea.ProgramOption
+	if runtime.GOOS == "windows" {
+		// Use a fresh console input handle on Windows. Bubble Tea's default stdin
+		// path enables native mouse input and disables Quick Edit, which prevents
+		// terminal text selection with the mouse.
+		opts = append(opts, tea.WithInputTTY())
+	}
+	program := tea.NewProgram(ui, opts...)
 	finalModel, err := program.Run()
 	if err != nil {
 		return nil, err
@@ -207,8 +215,11 @@ func (m *uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	case tea.KeyMsg:
 		switch incoming.String() {
-		case "q", "ctrl+c":
+		case "q", "esc":
 			return m, tea.Quit
+		case "ctrl+c":
+			// Keep Ctrl+C available for terminal copy when the user selects text.
+			return m, nil
 		case "left":
 			m.focus = focusGroups
 			return m, nil
@@ -874,13 +885,13 @@ func (m *uiModel) renderFooter() string {
 	var help string
 	switch m.phase {
 	case phaseSelect:
-		help = "left/right:focus  up/down:move  space:select  enter:dry-run  q:quit"
+		help = "left/right:focus  up/down:move  space:select  enter:dry-run  q/esc:quit  mouse-select+ctrl+c:copy"
 	case phaseDryRun:
-		help = "dry-run ready. enter:execute  q:quit"
+		help = "dry-run ready. enter:execute  q/esc:quit  mouse-select+ctrl+c:copy"
 	case phaseRunning:
-		help = "execution running. q:quit"
+		help = "execution running. q/esc:quit  mouse-select+ctrl+c:copy"
 	case phaseResult:
-		help = "execution complete. q:quit"
+		help = "execution complete. q/esc:quit  mouse-select+ctrl+c:copy"
 	}
 	if m.message == "" {
 		return help

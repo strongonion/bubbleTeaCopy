@@ -1,5 +1,7 @@
 # bubblecopy
 
+[中文说明](README.zh-CN.md)
+
 Bubble Tea TUI tool for grouped file/folder copy and move tasks from CSV.
 
 ## CSV format
@@ -24,7 +26,7 @@ go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 
 ## TUI keys
 
-- `Tab`: switch focus between left group pane and right task pane
+- `Left/Right`: switch focus between left group pane and right task pane
 - `Up/Down` or `j/k`: move cursor
 - `Space` on group: select/unselect all tasks in that group
 - `Space` on task: toggle one task

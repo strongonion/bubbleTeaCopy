@@ -7,6 +7,7 @@ import (
 
 	"bubblecopy/internal/engine"
 	"bubblecopy/internal/model"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestBuildGroupsPreservesFirstAppearanceOrder(t *testing.T) {
@@ -109,6 +110,29 @@ func TestAnimatedFocusIconFrameChangesAfterTick(t *testing.T) {
 
 	if first == second {
 		t.Fatalf("focus icon 帧未变化: %q", first)
+	}
+}
+
+func TestCtrlCDoesNotQuit(t *testing.T) {
+	ui := newModel([]model.Task{{Index: 0, Group: "g1"}}, 1)
+
+	_, cmd := ui.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd != nil {
+		if _, ok := cmd().(tea.QuitMsg); ok {
+			t.Fatalf("ctrl+c 不应退出，以便终端复制选中文本")
+		}
+	}
+}
+
+func TestQStillQuits(t *testing.T) {
+	ui := newModel([]model.Task{{Index: 0, Group: "g1"}}, 1)
+
+	_, cmd := ui.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	if cmd == nil {
+		t.Fatalf("q 应继续触发退出")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatalf("q 返回的不是退出消息")
 	}
 }
 
