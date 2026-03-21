@@ -171,28 +171,27 @@ func (m *uiModel) moveCursor(delta int) {
 		if len(m.groups) == 0 {
 			return
 		}
-		m.groupCursor += delta
-		if m.groupCursor < 0 {
-			m.groupCursor = 0
-		}
-		if m.groupCursor >= len(m.groups) {
-			m.groupCursor = len(m.groups) - 1
-		}
+		m.groupCursor = wrapIndex(m.groupCursor, delta, len(m.groups))
 		m.clampTaskCursor()
 		return
 	}
 
 	current, ok := m.currentGroup()
-	if !ok {
+	if !ok || len(current.TaskIndexes) == 0 {
 		return
 	}
-	m.taskCursor += delta
-	if m.taskCursor < 0 {
-		m.taskCursor = 0
+	m.taskCursor = wrapIndex(m.taskCursor, delta, len(current.TaskIndexes))
+}
+
+func wrapIndex(current, delta, length int) int {
+	if length <= 0 {
+		return 0
 	}
-	if m.taskCursor >= len(current.TaskIndexes) {
-		m.taskCursor = len(current.TaskIndexes) - 1
+	next := (current + delta) % length
+	if next < 0 {
+		next += length
 	}
+	return next
 }
 
 func (m *uiModel) toggleSelection() {

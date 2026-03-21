@@ -55,6 +55,50 @@ func TestGroupSpaceTogglesWholeGroup(t *testing.T) {
 	}
 }
 
+func TestMoveCursorWrapsGroups(t *testing.T) {
+	tasks := []model.Task{
+		{Index: 0, Group: "docs"},
+		{Index: 1, Group: "media"},
+	}
+
+	ui := newModel(tasks, 1)
+	ui.focus = focusGroups
+	ui.groupCursor = 0
+
+	ui.moveCursor(-1)
+	if ui.groupCursor != 1 {
+		t.Fatalf("groupCursor = %d, 期望 1", ui.groupCursor)
+	}
+
+	ui.moveCursor(1)
+	if ui.groupCursor != 0 {
+		t.Fatalf("groupCursor = %d, 期望 0", ui.groupCursor)
+	}
+}
+
+func TestMoveCursorWrapsTasks(t *testing.T) {
+	tasks := []model.Task{
+		{Index: 0, Group: "docs"},
+		{Index: 1, Group: "docs"},
+		{Index: 2, Group: "docs"},
+	}
+
+	ui := newModel(tasks, 1)
+	ui.focus = focusTasks
+	ui.groupCursor = 0
+	ui.taskCursor = 0
+
+	ui.moveCursor(-1)
+	if ui.taskCursor != 2 {
+		t.Fatalf("taskCursor = %d, 期望 2", ui.taskCursor)
+	}
+
+	ui.moveCursor(1)
+	if ui.taskCursor != 0 {
+		t.Fatalf("taskCursor = %d, 期望 0", ui.taskCursor)
+	}
+}
+
 func TestTruncateKeepsUTF8Boundary(t *testing.T) {
 	input := "路径: C:\\源\\文件\\非常长的文件名.txt"
 	got := truncate(input, 10)
