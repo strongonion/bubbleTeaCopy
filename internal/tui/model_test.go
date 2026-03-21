@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"unicode/utf8"
 
+	"bubblecopy/internal/engine"
 	"bubblecopy/internal/model"
 )
 
@@ -107,5 +109,127 @@ func TestTruncateKeepsUTF8Boundary(t *testing.T) {
 	}
 	if got != "路径: C:\\..." {
 		t.Fatalf("truncate 结果 = %q, 期望 %q", got, "路径: C:\\...")
+	}
+}
+
+func TestAnimatedFocusIconFrameChangesAfterTick(t *testing.T) {
+	ui := newModel([]model.Task{{Index: 0, Group: "g1"}}, 1)
+	first := ui.focusIconFrame()
+	ui.Update(animationTickMsg{})
+	second := ui.focusIconFrame()
+
+	if first == second {
+		t.Fatalf("focus icon 帧未变化: %q", first)
+	}
+}
+
+func TestRenderStatusKeepsTextLabel(t *testing.T) {
+	got := renderStatus(model.StatusSuccess)
+	if !strings.Contains(got, string(model.StatusSuccess)) {
+		t.Fatalf("renderStatus(%q) 未包含状态文本: %q", model.StatusSuccess, got)
+	}
+}
+
+func TestTruncateKeepsUTF8BoundaryWithUnicodeIcons(t *testing.T) {
+	input := "◐ ◆ ⧉ copy 路径: C:\\源\\文件\\非常长的文件名.txt"
+	got := truncate(input, 12)
+
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncate 带 icon 结果不是合法 UTF-8: %q", got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("truncate 带 icon 结果应以省略号结尾: %q", got)
+	}
+}
+
+func TestExecutionPhaseTransitionsDryRunToRunningToResult(t *testing.T) {
+	ui := newModel([]model.Task{
+		{Index: 0, Source: "src.txt", Target: "dst.txt", Op: model.OpCopy, Group: "g1"},
+	}, 1)
+	ui.phase = phaseDryRun
+	ui.plan = engine.Plan{
+		Order: []int{0},
+		ByTask: map[int]engine.PlanItem{
+			0: {
+				TaskIndex: 0,
+				ShouldRun: true,
+				Status:    model.StatusPlanned,
+			},
+		},
+	}
+
+	stream := make(chan engine.Result)
+	cmd := ui.startExecutionWithStream(func() <-chan engine.Result {
+		return stream
+	})
+	if cmd == nil {
+		t.Fatalf("startExecutionWithStream() 应返回非空命令")
+	}
+	if ui.phase != phaseRunning {
+		t.Fatalf("phase = %v, 期望 phaseRunning", ui.phase)
+	}
+
+	close(stream)
+	ui.Update(executionResultMsg{ok: false})
+	if ui.phase != phaseResult {
+		t.Fatalf("phase = %v, 期望 phaseResult", ui.phase)
+	}
+}
+
+func TestExecutionResultUpdatesCountsAndProgress(t *testing.T) {
+	ui := newModel([]model.Task{
+		{Index: 0, Source: "src.txt", Target: "dst.txt", Op: model.OpCopy, Group: "g1"},
+	}, 1)
+	ui.phase = phaseRunning
+	ui.resultStream = make(chan engine.Result)
+	ui.runTotal = 1
+	ui.runnableByTask[0] = true
+
+	_, cmd := ui.Update(executionResultMsg{
+		ok: true,
+		result: engine.Result{
+			TaskIndex: 0,
+			Status:    model.StatusSuccess,
+			Message:   "done",
+		},
+	})
+
+	if cmd == nil {
+		t.Fatalf("Update() 应返回后续等待命令")
+	}
+	if ui.tasks[0].Status != model.StatusSuccess {
+		t.Fatalf("task status = %s, 期望 %s", ui.tasks[0].Status, model.StatusSuccess)
+	}
+	if ui.runDone != 1 {
+		t.Fatalf("runDone = %d, 期望 1", ui.runDone)
+	}
+	if ui.successCount != 1 {
+		t.Fatalf("successCount = %d, 期望 1", ui.successCount)
+	}
+	if got := ui.executionPercent(); got != 1 {
+		t.Fatalf("executionPercent = %.2f, 期望 1.00", got)
+	}
+}
+
+func TestAnimationTickStopsAfterResultPhase(t *testing.T) {
+	ui := newModel([]model.Task{{Index: 0, Group: "g1"}}, 1)
+	ui.phase = phaseSelect
+
+	_, cmd := ui.Update(animationTickMsg{})
+	if cmd == nil {
+		t.Fatalf("选择阶段动画 tick 应继续调度")
+	}
+	if ui.animFrame == 0 {
+		t.Fatalf("animFrame 未推进")
+	}
+
+	before := ui.animFrame
+	ui.phase = phaseResult
+	_, cmd = ui.Update(animationTickMsg{})
+	if cmd != nil {
+		t.Fatalf("结果阶段动画 tick 应停止")
+	}
+	if ui.animFrame != before {
+		t.Fatalf("结果阶段不应推进 animFrame, got=%d want=%d", ui.animFrame, before)
 	}
 }
