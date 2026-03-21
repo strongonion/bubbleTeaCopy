@@ -40,6 +40,10 @@ var (
 	runningBackground    = lipgloss.AdaptiveColor{Light: "#FFF4E8", Dark: "#2B211B"}
 	focusLineBackground  = lipgloss.AdaptiveColor{Light: "#F8EDE1", Dark: "#30251F"}
 	titleStyle           = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#C8874A"))
+	logoFrameStyle       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#A97A5A")).Background(runningBackground).Padding(0, 2)
+	logoArtStyle         = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#C98E5A"))
+	logoTitleStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#B86F4D"))
+	logoSubtitleStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#9E7E63"))
 	panelStyle           = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#8C6A53")).Background(panelBackground).Padding(0, 1)
 	runningPanelStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#A76F53")).Background(runningBackground).Padding(0, 1)
 	successStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#B3984B"))
@@ -60,8 +64,9 @@ var (
 		lipgloss.Color("#B56C54"),
 		lipgloss.Color("#B89261"),
 	}
+	logoArtLines          = []string{"      .-~~~~-.", "   .-(  o  o  )-.", "  (   .-.__.-.   )", "   '-(  ____  )-'", "      '-.__.-'"}
 	focusIconFrames       = []string{"◐", "◓", "◑", "◒"}
-	runningIconFrames     = []string{"✶", "✷", "✸", "✹"}
+	runningIconFrames     = []string{"▗▞▖", "▝▚▘", "▖▙▗", "▘▛▝", "▗▟▖", "▝▜▘"}
 	groupSelectedFrames   = []string{"◉", "◎", "◉", "◍"}
 	groupPartialFrames    = []string{"◐", "◓", "◑", "◒"}
 	groupUnselectedFrames = []string{"○", "◌", "○", "◌"}
@@ -251,7 +256,8 @@ func (m *uiModel) View() string {
 	tasksPanel := panelStyle.Width(rightWidth).Render(m.renderTasks())
 	body := lipgloss.JoinHorizontal(lipgloss.Top, groupsPanel, tasksPanel)
 
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
+	parts = append(parts, m.renderLogo())
 	if m.phase == phaseRunning {
 		parts = append(parts, m.renderRunningHeader())
 	}
@@ -798,6 +804,26 @@ func (m *uiModel) animatedRunIcon() string {
 	return lipgloss.NewStyle().Bold(true).Foreground(m.focusColor()).Render(m.frameValue(runningIconFrames))
 }
 
+func (m *uiModel) renderLogo() string {
+	art := logoArtStyle.Render(strings.Join(logoArtLines, "\n"))
+	title := logoTitleStyle.Render("BUBBLECOPY")
+	subtitle := logoSubtitleStyle.Render("batch copy / move")
+	content := lipgloss.JoinVertical(lipgloss.Center, art, title, subtitle)
+
+	frameWidth := m.runningPanelWidth()
+	if frameWidth > 72 {
+		frameWidth = 72
+	}
+	if frameWidth < 34 {
+		frameWidth = 34
+	}
+
+	return lipgloss.NewStyle().
+		Width(m.runningPanelWidth()).
+		Align(lipgloss.Center).
+		Render(logoFrameStyle.Width(frameWidth).Align(lipgloss.Center).Render(content))
+}
+
 func (m *uiModel) animatedLine(line string) string {
 	return lipgloss.NewStyle().
 		Foreground(m.focusColor()).
@@ -807,7 +833,7 @@ func (m *uiModel) animatedLine(line string) string {
 
 func (m *uiModel) renderRunningHeader() string {
 	percent := m.executionPercent()
-	head := fmt.Sprintf("%s %s Running %d/%d  success=%d failed=%d skipped=%d",
+	head := fmt.Sprintf("%s %s %d/%d  success=%d failed=%d skipped=%d",
 		m.spinner.View(),
 		m.animatedRunIcon(),
 		m.runDone,
