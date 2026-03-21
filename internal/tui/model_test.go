@@ -1,9 +1,9 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"bubblecopy/internal/engine"
 	"bubblecopy/internal/model"
@@ -101,17 +101,6 @@ func TestMoveCursorWrapsTasks(t *testing.T) {
 	}
 }
 
-func TestTruncateKeepsUTF8Boundary(t *testing.T) {
-	input := "路径: C:\\源\\文件\\非常长的文件名.txt"
-	got := truncate(input, 10)
-	if !utf8.ValidString(got) {
-		t.Fatalf("truncate 结果不是合法 UTF-8: %q", got)
-	}
-	if got != "路径: C:\\..." {
-		t.Fatalf("truncate 结果 = %q, 期望 %q", got, "路径: C:\\...")
-	}
-}
-
 func TestAnimatedFocusIconFrameChangesAfterTick(t *testing.T) {
 	ui := newModel([]model.Task{{Index: 0, Group: "g1"}}, 1)
 	first := ui.focusIconFrame()
@@ -130,15 +119,47 @@ func TestRenderStatusKeepsTextLabel(t *testing.T) {
 	}
 }
 
-func TestTruncateKeepsUTF8BoundaryWithUnicodeIcons(t *testing.T) {
-	input := "◐ ◆ ⧉ copy 路径: C:\\源\\文件\\非常长的文件名.txt"
-	got := truncate(input, 12)
+func TestFormatLatestTaskUsesAbsolutePaths(t *testing.T) {
+	srcAbs := filepath.Clean(filepath.Join(t.TempDir(), "源", "文件.txt"))
+	targetAbs := filepath.Clean(filepath.Join(t.TempDir(), "目标", "文件.txt"))
 
-	if !utf8.ValidString(got) {
-		t.Fatalf("truncate 带 icon 结果不是合法 UTF-8: %q", got)
+	ui := newModel([]model.Task{
+		{Index: 0, Source: ".\\ignored-source", Target: ".\\ignored-target", Op: model.OpCopy, Group: "g1"},
+	}, 1)
+	ui.plan = engine.Plan{
+		ByTask: map[int]engine.PlanItem{
+			0: {
+				TaskIndex: 0,
+				SourceAbs: srcAbs,
+				FinalPath: targetAbs,
+			},
+		},
 	}
-	if !strings.HasSuffix(got, "...") {
-		t.Fatalf("truncate 带 icon 结果应以省略号结尾: %q", got)
+
+	got := ui.formatLatestTask(engine.Result{TaskIndex: 0, Status: model.StatusSuccess})
+	if !strings.Contains(got, srcAbs) {
+		t.Fatalf("formatLatestTask() 未包含完整源路径: %q", got)
+	}
+	if !strings.Contains(got, targetAbs) {
+		t.Fatalf("formatLatestTask() 未包含完整目标路径: %q", got)
+	}
+}
+
+func TestRenderTasksShowsFullPaths(t *testing.T) {
+	srcAbs := filepath.Clean(filepath.Join(t.TempDir(), "源", "很长的文件名.txt"))
+	targetAbs := filepath.Clean(filepath.Join(t.TempDir(), "目标", "很长的文件名.txt"))
+
+	ui := newModel([]model.Task{
+		{Index: 0, Source: srcAbs, Target: targetAbs, Op: model.OpCopy, Group: "g1"},
+	}, 1)
+	ui.width = 240
+
+	rendered := ui.renderTasks()
+	if !strings.Contains(rendered, srcAbs) {
+		t.Fatalf("renderTasks() 未显示完整源路径: %q", rendered)
+	}
+	if !strings.Contains(rendered, targetAbs) {
+		t.Fatalf("renderTasks() 未显示完整目标路径: %q", rendered)
 	}
 }
 

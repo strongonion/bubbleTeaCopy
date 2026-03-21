@@ -503,11 +503,13 @@ func (m *uiModel) formatLatestTask(result engine.Result) string {
 	}
 
 	task := m.tasks[result.TaskIndex]
-	source := filepath.Base(task.Source)
-	if source == "." || source == string(filepath.Separator) || source == "" {
-		source = task.Source
-	}
-	return fmt.Sprintf("%s %s %s -> %s", strings.ToUpper(string(result.Status)), task.Op, source, task.Target)
+	return fmt.Sprintf(
+		"%s %s %s -> %s",
+		strings.ToUpper(string(result.Status)),
+		task.Op,
+		m.taskSourcePath(result.TaskIndex),
+		m.taskTargetPath(result.TaskIndex),
+	)
 }
 
 func (m *uiModel) executionPercent() float64 {
@@ -670,6 +672,7 @@ func (m *uiModel) renderTasks() string {
 		return strings.Join(lines, "\n")
 	}
 
+	contentWidth := m.taskPanelContentWidth()
 	for row, taskIndex := range group.TaskIndexes {
 		task := m.tasks[taskIndex]
 		focused := m.focus == focusTasks && row == m.taskCursor
@@ -682,20 +685,17 @@ func (m *uiModel) renderTasks() string {
 
 		op := m.renderOperation(task.Op)
 		status := renderStatus(task.Status)
-		source := filepath.Base(task.Source)
-		if source == "." || source == string(filepath.Separator) || source == "" {
-			source = task.Source
-		}
 
-		line := fmt.Sprintf("%s %s %s %s %s -> %s", cursor, mark, op, status, source, task.Target)
-		line = truncate(line, 120)
+		line := fmt.Sprintf("%s %s %s %s", cursor, mark, op, status)
 		if focused {
 			line = m.animatedLine(line)
 		}
 		lines = append(lines, line)
+		lines = append(lines, wrapLabeledText("    from: ", m.taskSourcePath(taskIndex), contentWidth)...)
+		lines = append(lines, wrapLabeledText("    to:   ", m.taskTargetPath(taskIndex), contentWidth)...)
 
 		if task.Message != "" && m.phase != phaseSelect {
-			lines = append(lines, "    "+truncate(task.Message, 110))
+			lines = append(lines, wrapLabeledText("    ", task.Message, contentWidth)...)
 		}
 	}
 
@@ -846,7 +846,7 @@ func (m *uiModel) renderRunningHeader() string {
 
 	lines := []string{head, progressLine}
 	if m.lastUpdate != "" {
-		lines = append(lines, "Current: "+truncate(m.lastUpdate, 110))
+		lines = append(lines, wrapLabeledText("Current: ", m.lastUpdate, m.runningPanelContentWidth())...)
 	}
 	return runningPanelStyle.Width(m.runningPanelWidth()).Render(strings.Join(lines, "\n"))
 }
@@ -860,6 +860,15 @@ func (m *uiModel) runningPanelWidth() int {
 		width = 40
 	}
 	return width
+}
+
+func (m *uiModel) runningPanelContentWidth() int {
+	return panelContentWidth(m.runningPanelWidth())
+}
+
+func (m *uiModel) taskPanelContentWidth() int {
+	_, rightWidth := m.columnWidths()
+	return panelContentWidth(rightWidth)
 }
 
 func (m *uiModel) renderFooter() string {
@@ -880,22 +889,92 @@ func (m *uiModel) renderFooter() string {
 	return help + "\n" + m.message
 }
 
-func truncate(value string, max int) string {
-	if max <= 0 {
-		return value
+func panelContentWidth(panelWidth int) int {
+	width := panelWidth - 6
+	if width < 20 {
+		return 20
 	}
-	if utf8.RuneCountInString(value) <= max {
-		return value
+	return width
+}
+
+func (m *uiModel) taskSourcePath(taskIndex int) string {
+	if item, ok := m.plan.ByTask[taskIndex]; ok && item.SourceAbs != "" {
+		return item.SourceAbs
+	}
+	if taskIndex < 0 || taskIndex >= len(m.tasks) {
+		return ""
+	}
+	return absoluteDisplayPath(m.tasks[taskIndex].Source)
+}
+
+func (m *uiModel) taskTargetPath(taskIndex int) string {
+	if item, ok := m.plan.ByTask[taskIndex]; ok {
+		switch {
+		case item.FinalPath != "":
+			return item.FinalPath
+		case item.TargetAbs != "":
+			return item.TargetAbs
+		}
+	}
+	if taskIndex < 0 || taskIndex >= len(m.tasks) {
+		return ""
+	}
+	return absoluteDisplayPath(m.tasks[taskIndex].Target)
+}
+
+func absoluteDisplayPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
 	}
 
-	runes := []rune(value)
-	if max == 1 {
-		return string(runes[:1])
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Clean(path)
 	}
-	if max <= 3 {
-		return string(runes[:max])
+	return filepath.Clean(abs)
+}
+
+func wrapLabeledText(prefix, value string, max int) []string {
+	if value == "" {
+		return []string{prefix}
 	}
-	return string(runes[:max-3]) + "..."
+
+	prefixWidth := utf8.RuneCountInString(prefix)
+	if max <= prefixWidth+1 {
+		return []string{prefix + value}
+	}
+
+	continuation := strings.Repeat(" ", prefixWidth)
+	rawLines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
+	lines := make([]string, 0, len(rawLines))
+
+	for rawLineIndex, rawLine := range rawLines {
+		currentPrefix := prefix
+		if rawLineIndex > 0 {
+			currentPrefix = continuation
+		}
+
+		runes := []rune(rawLine)
+		if len(runes) == 0 {
+			lines = append(lines, currentPrefix)
+			continue
+		}
+
+		for len(runes) > 0 {
+			room := max - utf8.RuneCountInString(currentPrefix)
+			if room <= 0 || len(runes) <= room {
+				lines = append(lines, currentPrefix+string(runes))
+				break
+			}
+
+			lines = append(lines, currentPrefix+string(runes[:room]))
+			runes = runes[room:]
+			currentPrefix = continuation
+		}
+	}
+
+	return lines
 }
 
 func animationTickCmd() tea.Cmd {
