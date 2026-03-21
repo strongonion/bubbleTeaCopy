@@ -1,0 +1,4 @@
+source,target,op,clear_target,group
+./input/a.txt,./output/docs.txt,copy,false,docs
+./input/folder,./archive,move,false,archive
+./input/image.png,./output/images,copy,true,media
