@@ -11,17 +11,17 @@ import (
 )
 
 type PlanItem struct {
-	TaskIndex   int
-	SourceAbs   string
-	TargetAbs   string
-	FinalPath   string
-	SourceIsDir bool
-	ClearTarget bool
+	TaskIndex    int
+	SourceAbs    string
+	TargetAbs    string
+	FinalPath    string
+	SourceIsDir  bool
+	ClearTarget  bool
 	TargetExists bool
-	TargetIsDir bool
-	ShouldRun   bool
-	Status      model.Status
-	Message     string
+	TargetIsDir  bool
+	ShouldRun    bool
+	Status       model.Status
+	Message      string
 }
 
 type Plan struct {
@@ -95,7 +95,11 @@ func buildPlanItem(task model.Task, taskIndex int) PlanItem {
 	finalPath := targetAbs
 	if item.TargetExists {
 		if item.TargetIsDir {
-			finalPath = filepath.Join(targetAbs, filepath.Base(sourceAbs))
+			if item.SourceIsDir && task.ClearTarget {
+				finalPath = targetAbs
+			} else {
+				finalPath = filepath.Join(targetAbs, filepath.Base(sourceAbs))
+			}
 		} else if item.SourceIsDir {
 			item.Status = model.StatusSkipped
 			item.Message = "skipped: directory source cannot target an existing file"

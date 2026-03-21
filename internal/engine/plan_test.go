@@ -131,6 +131,72 @@ func TestDryRunBlocksDuplicateClearTargetDirectory(t *testing.T) {
 	}
 }
 
+func TestDryRunDirectoryToExistingDirWithClearTargetUsesTargetAsFinalPath(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "src")
+	targetDir := filepath.Join(root, "dst")
+
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatalf("创建 source 目录失败: %v", err)
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatalf("创建 target 目录失败: %v", err)
+	}
+
+	tasks := []model.Task{
+		{
+			Index:       0,
+			Source:      sourceDir,
+			Target:      targetDir,
+			Op:          model.OpMove,
+			ClearTarget: true,
+			Group:       "g1",
+		},
+	}
+
+	plan := DryRun(tasks, []int{0})
+	item := plan.ByTask[0]
+	if !item.ShouldRun {
+		t.Fatalf("期望 should_run=true, message=%q", item.Message)
+	}
+	if got, want := item.FinalPath, targetDir; got != want {
+		t.Fatalf("finalPath = %q, 期望 %q", got, want)
+	}
+}
+
+func TestDryRunDirectoryToExistingDirWithoutClearTargetKeepsSubdirFinalPath(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "src")
+	targetDir := filepath.Join(root, "dst")
+
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatalf("创建 source 目录失败: %v", err)
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatalf("创建 target 目录失败: %v", err)
+	}
+
+	tasks := []model.Task{
+		{
+			Index:       0,
+			Source:      sourceDir,
+			Target:      targetDir,
+			Op:          model.OpMove,
+			ClearTarget: false,
+			Group:       "g1",
+		},
+	}
+
+	plan := DryRun(tasks, []int{0})
+	item := plan.ByTask[0]
+	if !item.ShouldRun {
+		t.Fatalf("期望 should_run=true, message=%q", item.Message)
+	}
+	if got, want := item.FinalPath, filepath.Join(targetDir, filepath.Base(sourceDir)); got != want {
+		t.Fatalf("finalPath = %q, 期望 %q", got, want)
+	}
+}
+
 func mustWriteFile(t *testing.T, path string, data string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
