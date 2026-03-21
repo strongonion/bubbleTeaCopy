@@ -209,12 +209,11 @@ func (m *uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch incoming.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "tab":
-			if m.focus == focusGroups {
-				m.focus = focusTasks
-			} else {
-				m.focus = focusGroups
-			}
+		case "left":
+			m.focus = focusGroups
+			return m, nil
+		case "right":
+			m.focus = focusTasks
 			return m, nil
 		case "up", "k":
 			m.moveCursor(-1)
@@ -875,7 +874,7 @@ func (m *uiModel) renderFooter() string {
 	var help string
 	switch m.phase {
 	case phaseSelect:
-		help = "tab:focus  up/down:move  space:select  enter:dry-run  q:quit"
+		help = "left/right:focus  up/down:move  space:select  enter:dry-run  q:quit"
 	case phaseDryRun:
 		help = "dry-run ready. enter:execute  q:quit"
 	case phaseRunning:
