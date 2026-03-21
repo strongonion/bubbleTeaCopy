@@ -1,27 +1,36 @@
 package config
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"bubblecopy/internal/model"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 var requiredHeaders = []string{"source", "target", "op", "clear_target", "group"}
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
 // LoadCSV parses task rows from a CSV file with required headers:
 // source,target,op,clear_target,group
 func LoadCSV(path string) ([]model.Task, error) {
-	file, err := os.Open(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("open csv: %w", err)
 	}
-	defer file.Close()
 
-	reader := csv.NewReader(file)
+	decoded, err := decodeCSVContent(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode csv: %w", err)
+	}
+
+	reader := csv.NewReader(bytes.NewReader(decoded))
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
 
@@ -104,6 +113,20 @@ func LoadCSV(path string) ([]model.Task, error) {
 	}
 
 	return tasks, nil
+}
+
+func decodeCSVContent(raw []byte) ([]byte, error) {
+	raw = bytes.TrimPrefix(raw, utf8BOM)
+	if utf8.Valid(raw) {
+		return raw, nil
+	}
+
+	decoded, _, err := transform.Bytes(simplifiedchinese.GB18030.NewDecoder(), raw)
+	if err == nil && utf8.Valid(decoded) {
+		return decoded, nil
+	}
+
+	return nil, fmt.Errorf("unsupported csv encoding, please save as UTF-8 or GB18030")
 }
 
 func valueAt(record []string, index int) string {

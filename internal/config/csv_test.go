@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"bubblecopy/internal/model"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 func TestLoadCSVParsesByHeaderName(t *testing.T) {
@@ -94,12 +96,67 @@ func TestLoadCSVDefaultGroup(t *testing.T) {
 	}
 }
 
+func TestLoadCSVGB18030ChinesePath(t *testing.T) {
+	content := strings.Join([]string{
+		"source,target,op,clear_target,group",
+		`C:\源\文件\test.txt,C:\目标\文件\test.txt,copy,true,docs`,
+	}, "\n")
+
+	encoded, _, err := transform.Bytes(simplifiedchinese.GB18030.NewEncoder(), []byte(content))
+	if err != nil {
+		t.Fatalf("GB18030 编码失败: %v", err)
+	}
+
+	path := writeTempCSVBytes(t, encoded)
+	tasks, err := LoadCSV(path)
+	if err != nil {
+		t.Fatalf("LoadCSV() 返回错误 = %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("期望 1 个任务，实际 %d", len(tasks))
+	}
+	if got, want := tasks[0].Source, `C:\源\文件\test.txt`; got != want {
+		t.Fatalf("source = %q, 期望 %q", got, want)
+	}
+	if got, want := tasks[0].Target, `C:\目标\文件\test.txt`; got != want {
+		t.Fatalf("target = %q, 期望 %q", got, want)
+	}
+}
+
+func TestLoadCSVUTF8BOMHeader(t *testing.T) {
+	content := strings.Join([]string{
+		"source,target,op,clear_target,group",
+		"./a.txt,./b.txt,copy,false,docs",
+	}, "\n")
+	withBOM := append([]byte{0xEF, 0xBB, 0xBF}, []byte(content)...)
+
+	path := writeTempCSVBytes(t, withBOM)
+	tasks, err := LoadCSV(path)
+	if err != nil {
+		t.Fatalf("LoadCSV() 返回错误 = %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("期望 1 个任务，实际 %d", len(tasks))
+	}
+}
+
 func writeTempCSV(t *testing.T, content string) string {
 	t.Helper()
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tasks.csv")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("写入 csv 失败: %v", err)
+	}
+	return path
+}
+
+func writeTempCSVBytes(t *testing.T, content []byte) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tasks.csv")
+	if err := os.WriteFile(path, content, 0o644); err != nil {
 		t.Fatalf("写入 csv 失败: %v", err)
 	}
 	return path

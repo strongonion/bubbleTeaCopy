@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -29,27 +30,27 @@ const (
 )
 
 var (
-	titleStyle = lipgloss.NewStyle().Bold(true)
-	panelStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
-	cursorStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	titleStyle   = lipgloss.NewStyle().Bold(true)
+	panelStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
+	cursorStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
 	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	failedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	failedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	skippedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 )
 
 type uiModel struct {
-	tasks      []model.Task
-	groups     []model.GroupView
-	selected   map[int]bool
+	tasks       []model.Task
+	groups      []model.GroupView
+	selected    map[int]bool
 	groupCursor int
 	taskCursor  int
-	focus      focusPane
-	phase      phase
-	workers    int
-	plan       engine.Plan
-	message    string
-	width      int
-	height     int
+	focus       focusPane
+	phase       phase
+	workers     int
+	plan        engine.Plan
+	message     string
+	width       int
+	height      int
 }
 
 func Run(tasks []model.Task, workers int) ([]model.Task, error) {
@@ -78,11 +79,11 @@ func newModel(tasks []model.Task, workers int) *uiModel {
 	}
 
 	m := &uiModel{
-		tasks:     cloned,
-		selected:  make(map[int]bool, len(cloned)),
-		focus:     focusGroups,
-		phase:     phaseSelect,
-		workers:   workers,
+		tasks:       cloned,
+		selected:    make(map[int]bool, len(cloned)),
+		focus:       focusGroups,
+		phase:       phaseSelect,
+		workers:     workers,
 		groupCursor: 0,
 		taskCursor:  0,
 	}
@@ -490,14 +491,19 @@ func (m *uiModel) renderFooter() string {
 }
 
 func truncate(value string, max int) string {
-	if max <= 0 || len(value) <= max {
+	if max <= 0 {
 		return value
 	}
+	if utf8.RuneCountInString(value) <= max {
+		return value
+	}
+
+	runes := []rune(value)
 	if max == 1 {
-		return value[:1]
+		return string(runes[:1])
 	}
 	if max <= 3 {
-		return value[:max]
+		return string(runes[:max])
 	}
-	return value[:max-3] + "..."
+	return string(runes[:max-3]) + "..."
 }

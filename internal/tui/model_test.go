@@ -2,6 +2,7 @@ package tui
 
 import (
 	"testing"
+	"unicode/utf8"
 
 	"bubblecopy/internal/model"
 )
@@ -51,5 +52,16 @@ func TestGroupSpaceTogglesWholeGroup(t *testing.T) {
 	ui.toggleSelection()
 	if ui.selected[0] || ui.selected[1] {
 		t.Fatalf("期望 docs 分组被取消选择")
+	}
+}
+
+func TestTruncateKeepsUTF8Boundary(t *testing.T) {
+	input := "路径: C:\\源\\文件\\非常长的文件名.txt"
+	got := truncate(input, 10)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncate 结果不是合法 UTF-8: %q", got)
+	}
+	if got != "路径: C:\\..." {
+		t.Fatalf("truncate 结果 = %q, 期望 %q", got, "路径: C:\\...")
 	}
 }
