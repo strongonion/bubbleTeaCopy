@@ -24,6 +24,22 @@ source,target,op,clear_target,group
 go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 ```
 
+## 发布
+
+GitHub Actions 会在你推送版本标签后，自动构建并发布 GitHub Release，产出：
+- Windows `amd64` 和 `arm64`
+- macOS `amd64` 和 `arm64`
+- Linux `amd64` 和 `arm64`
+
+触发方式示例：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+每个 Release 资产里都包含编译后的程序、`tasks.example.csv` 以及中英文 README。
+
 ## TUI 按键
 
 - `Left/Right`：在左侧分组面板和右侧任务面板之间切换焦点

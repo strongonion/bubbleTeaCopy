@@ -24,6 +24,22 @@ Rules:
 go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 ```
 
+## Release
+
+GitHub Actions will automatically build and publish GitHub Releases for:
+- Windows `amd64` and `arm64`
+- macOS `amd64` and `arm64`
+- Linux `amd64` and `arm64`
+
+The workflow is triggered when you push a version tag such as:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Each release asset includes the compiled binary, `tasks.example.csv`, and both README files.
+
 ## TUI keys
 
 - `Left/Right`: switch focus between left group pane and right task pane

@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive_ext: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive_ext: zip
+          - goos: windows
+            goarch: arm64
+            archive_ext: zip
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binary
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p dist
+
+          binary_name="bubblecopy"
+          ext=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            ext=".exe"
+          fi
+
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 \
+            go build -trimpath -ldflags="-s -w" -o "dist/${binary_name}${ext}" ./cmd/bubblecopy
+
+      - name: Package release archive
+        id: package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          version="${GITHUB_REF_NAME}"
+          package_name="bubblecopy_${version}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          package_dir="package/${package_name}"
+
+          mkdir -p "${package_dir}"
+
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            cp "dist/bubblecopy.exe" "${package_dir}/"
+          else
+            cp "dist/bubblecopy" "${package_dir}/"
+          fi
+
+          cp README.md README.zh-CN.md tasks.example.csv "${package_dir}/"
+
+          if [ "${{ matrix.archive_ext }}" = "zip" ]; then
+            (
+              cd package
+              zip -r "../${package_name}.zip" "${package_name}"
+            )
+            echo "asset=${package_name}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -C package -czf "${package_name}.tar.gz" "${package_name}"
+            echo "asset=${package_name}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ steps.package.outputs.asset }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
