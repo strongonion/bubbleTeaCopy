@@ -1,3 +1,4 @@
+![alt text](image.png)
 # bubblecopy
 
 [中文说明](README.zh-CN.md)
@@ -23,6 +24,9 @@ Rules:
 ```bash
 go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 ```
+
+If `-config` is omitted, the app automatically looks for `tasks.csv` first, then `tasks.example.csv`, in the current directory and the executable directory.
+For packaged builds, keep the CSV next to the compiled binary, or launch the app from a directory that already contains the CSV.
 
 ## Release
 

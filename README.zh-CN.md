@@ -1,3 +1,4 @@
+![alt text](image-1.png)
 # bubblecopy
 
 [English README](README.md)
@@ -23,6 +24,9 @@ source,target,op,clear_target,group
 ```bash
 go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 ```
+
+如果不传 `-config`，程序会自动按顺序查找当前目录和程序所在目录中的 `tasks.csv`、`tasks.example.csv`。
+对于打包后的程序，只要把 CSV 放在编译产物同目录，或者从已包含 CSV 的目录启动程序即可。
 
 ## 发布
 
