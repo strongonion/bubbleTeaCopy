@@ -1,9 +1,9 @@
-![alt text](image-1.png)
 # bubblecopy
+![alt text](image-3.png)
 
 [English README](README.md)
 
-基于 Bubble Tea 的 TUI 工具，用于从 CSV 批量执行分组的文件/文件夹复制和移动任务。
+用于从 CSV 批量执行分组文件/文件夹复制和移动任务的本地工具。程序现在默认启动浏览器可视化界面，同时保留 Bubble Tea TUI 兼容模式。
 
 ## CSV 格式
 
@@ -25,8 +25,29 @@ source,target,op,clear_target,group
 go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 ```
 
+默认会在本机 `127.0.0.1` 上启动一个随机端口的 Web UI，并自动打开默认浏览器。
+
 如果不传 `-config`，程序会自动按顺序查找当前目录和程序所在目录中的 `tasks.csv`、`tasks.example.csv`。
 对于打包后的程序，只要把 CSV 放在编译产物同目录，或者从已包含 CSV 的目录启动程序即可。
+
+常用参数：
+
+```bash
+# 启动 Web UI，但不自动打开浏览器
+go run ./cmd/bubblecopy -config ./tasks.example.csv -no-browser
+
+# 指定本地 Web UI 监听地址
+go run ./cmd/bubblecopy -config ./tasks.example.csv -listen 127.0.0.1:8080
+
+# 使用旧版终端 TUI
+go run ./cmd/bubblecopy -config ./tasks.example.csv -ui tui
+```
+
+## Web 可视化界面
+
+- 默认模式是当前进程内启动的本地单用户 Web UI。
+- 浏览器里可以完成任务浏览、分组勾选、dry-run、正式执行、进度查看、最近更新和最终结果统计。
+- v1 只负责展示和操作启动时已加载的 CSV，不包含浏览器内上传、编辑、保存 CSV。
 
 ## 发布
 
@@ -45,6 +66,8 @@ git push origin v1.0.0
 每个 Release 资产里都包含编译后的程序、`tasks.example.csv` 以及中英文 README。
 
 ## TUI 按键
+
+以下按键仅在显式使用 `-ui tui` 时生效：
 
 - `Left/Right`：在左侧分组面板和右侧任务面板之间切换焦点
 - `Up/Down` 或 `j/k`：移动光标

@@ -1,9 +1,9 @@
-![alt text](image.png)
 # bubblecopy
+![alt text](image-2.png)
 
 [中文说明](README.zh-CN.md)
 
-Bubble Tea TUI tool for grouped file/folder copy and move tasks from CSV.
+Local batch copy and move tool for grouped file/folder tasks from CSV. It now starts a browser-based visual UI by default and still keeps the Bubble Tea TUI as a compatibility mode.
 
 ## CSV format
 
@@ -25,8 +25,29 @@ Rules:
 go run ./cmd/bubblecopy -config ./tasks.example.csv -workers 4
 ```
 
+By default, the app starts a local web UI on `127.0.0.1` with a random free port and opens your default browser automatically.
+
 If `-config` is omitted, the app automatically looks for `tasks.csv` first, then `tasks.example.csv`, in the current directory and the executable directory.
 For packaged builds, keep the CSV next to the compiled binary, or launch the app from a directory that already contains the CSV.
+
+Useful flags:
+
+```bash
+# keep the browser UI but do not auto-open the browser
+go run ./cmd/bubblecopy -config ./tasks.example.csv -no-browser
+
+# choose a fixed listening address for the local web UI
+go run ./cmd/bubblecopy -config ./tasks.example.csv -listen 127.0.0.1:8080
+
+# use the legacy Bubble Tea terminal UI
+go run ./cmd/bubblecopy -config ./tasks.example.csv -ui tui
+```
+
+## Web UI
+
+- Default mode is a local single-user web UI served from the current process.
+- The browser flow covers task browsing, grouped selection, dry-run, execution, progress, latest update, and final result counts.
+- The UI only visualizes and controls the CSV already loaded on startup. Browser upload/edit/save is intentionally not included in v1.
 
 ## Release
 
@@ -45,6 +66,8 @@ git push origin v1.0.0
 Each release asset includes the compiled binary, `tasks.example.csv`, and both README files.
 
 ## TUI keys
+
+The following keys apply when you explicitly start `-ui tui`:
 
 - `Left/Right`: switch focus between left group pane and right task pane
 - `Up/Down` or `j/k`: move cursor

@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bubblecopy</title>
+  <style>
+    :root {
+      --bg: #f8efe4;
+      --bg-strong: #f1e3d1;
+      --panel: rgba(255, 248, 238, 0.92);
+      --panel-strong: #fff5ea;
+      --line: rgba(124, 77, 47, 0.18);
+      --text: #3b271d;
+      --muted: #7d6554;
+      --accent: #be6f3b;
+      --accent-strong: #98451f;
+      --accent-soft: #f3c79f;
+      --success: #8e6c22;
+      --failed: #ac4336;
+      --skipped: #8f7159;
+      --planned: #9e6d2f;
+      --pending: #907c6a;
+      --shadow: 0 24px 60px rgba(95, 55, 31, 0.12);
+      --radius: 24px;
+      --radius-sm: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255, 214, 171, 0.55), transparent 32%),
+        radial-gradient(circle at top right, rgba(227, 132, 87, 0.22), transparent 28%),
+        linear-gradient(180deg, #f9f0e4 0%, #f3e1cd 100%);
+      font-family: "Trebuchet MS", "Aptos", "Segoe UI", sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 85%);
+      opacity: 0.22;
+    }
+
+    .page {
+      width: min(1360px, calc(100vw - 32px));
+      margin: 24px auto 40px;
+      display: grid;
+      gap: 18px;
+      animation: rise 0.55s ease-out both;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 28px;
+      border: 1px solid rgba(150, 95, 54, 0.16);
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(248, 227, 206, 0.94)),
+        linear-gradient(120deg, rgba(222, 138, 79, 0.08), transparent 60%);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -72px;
+      width: 240px;
+      height: 240px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(198, 111, 60, 0.18), transparent 70%);
+    }
+
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: grid;
+      gap: 8px;
+    }
+
+    .eyebrow {
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Cambria, Georgia, serif;
+      font-size: clamp(36px, 4vw, 58px);
+      line-height: 0.95;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .phase-box {
+      min-width: 220px;
+      padding: 14px 16px;
+      border-radius: 22px;
+      background: rgba(255, 251, 245, 0.8);
+      border: 1px solid rgba(145, 93, 55, 0.12);
+      display: grid;
+      gap: 10px;
+    }
+
+    .phase-row,
+    .selection-row,
+    .summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .phase-pill,
+    .pill,
+    .status-badge,
+    .op-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .phase-pill {
+      background: rgba(248, 214, 180, 0.75);
+      color: var(--accent-strong);
+      border-color: rgba(188, 112, 62, 0.22);
+    }
+
+    .message {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 252, 248, 0.8);
+      border: 1px solid rgba(137, 95, 68, 0.12);
+      color: var(--muted);
+      line-height: 1.5;
+      min-height: 52px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      cursor: pointer;
+      color: #fffaf4;
+      background: linear-gradient(135deg, #c97746, #a44d28);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: 0 10px 18px rgba(164, 77, 40, 0.2);
+      transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: rgba(255, 250, 245, 0.84);
+      border: 1px solid rgba(139, 92, 58, 0.16);
+      box-shadow: none;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 24px rgba(164, 77, 40, 0.24);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      box-shadow: none;
+    }
+
+    .toolbar-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-left: auto;
+    }
+
+    .layout {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(140, 95, 58, 0.12);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title {
+      font-family: Cambria, Georgia, serif;
+      font-size: 26px;
+      margin: 0;
+    }
+
+    .panel-subtitle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .group-list,
+    .task-list {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .group-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 20px;
+      background: rgba(255, 253, 249, 0.78);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .group-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(189, 118, 69, 0.24);
+    }
+
+    .group-item.active {
+      background: linear-gradient(135deg, rgba(255, 237, 217, 0.96), rgba(250, 228, 206, 0.94));
+      border-color: rgba(189, 118, 69, 0.32);
+    }
+
+    .group-name {
+      font-weight: 700;
+    }
+
+    .group-meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .group-check,
+    .task-check {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-strong);
+      cursor: pointer;
+    }
+
+    .main-grid {
+      display: grid;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .summary-panel {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(255, 246, 236, 0.96), rgba(246, 225, 207, 0.94));
+      border: 1px solid rgba(158, 104, 66, 0.12);
+    }
+
+    .summary-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .count-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .count-card {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 252, 247, 0.92);
+      border: 1px solid rgba(141, 96, 61, 0.1);
+    }
+
+    .count-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .count-value {
+      margin-top: 6px;
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .progress-shell {
+      position: relative;
+      height: 16px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(200, 159, 128, 0.18);
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #c86f40, #d8a05d, #e7c580);
+      transition: width 0.28s ease;
+    }
+
+    .current-line {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .task-card {
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255, 252, 247, 0.88);
+      border: 1px solid rgba(141, 96, 61, 0.1);
+      display: grid;
+      gap: 12px;
+    }
+
+    .task-top {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .task-left {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .task-paths {
+      display: grid;
+      gap: 10px;
+    }
+
+    .path-line {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      font-size: 14px;
+    }
+
+    .path-label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      padding-top: 2px;
+    }
+
+    .path-value {
+      word-break: break-all;
+      font-family: Consolas, "Courier New", monospace;
+      background: rgba(247, 237, 226, 0.84);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+
+    .task-message {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(245, 235, 224, 0.82);
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .empty-state {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--muted);
+      border-radius: 22px;
+      background: rgba(255, 252, 247, 0.74);
+      border: 1px dashed rgba(150, 97, 58, 0.24);
+    }
+
+    .status-pending {
+      color: var(--pending);
+      background: rgba(213, 196, 182, 0.28);
+      border-color: rgba(144, 124, 106, 0.22);
+    }
+
+    .status-planned {
+      color: var(--planned);
+      background: rgba(243, 218, 184, 0.38);
+      border-color: rgba(158, 109, 47, 0.22);
+    }
+
+    .status-success {
+      color: var(--success);
+      background: rgba(235, 228, 190, 0.44);
+      border-color: rgba(142, 108, 34, 0.24);
+    }
+
+    .status-failed {
+      color: var(--failed);
+      background: rgba(246, 208, 201, 0.44);
+      border-color: rgba(172, 67, 54, 0.22);
+    }
+
+    .status-skipped {
+      color: var(--skipped);
+      background: rgba(228, 217, 208, 0.5);
+      border-color: rgba(143, 113, 89, 0.22);
+    }
+
+    .op-copy {
+      color: #7a5831;
+      background: rgba(236, 213, 187, 0.48);
+      border-color: rgba(152, 112, 74, 0.2);
+    }
+
+    .op-move {
+      color: #8c4d30;
+      background: rgba(241, 210, 192, 0.52);
+      border-color: rgba(164, 90, 53, 0.22);
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .count-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100vw - 20px, 1360px);
+        margin: 10px auto 28px;
+      }
+
+      .hero {
+        padding: 22px;
+      }
+
+      .count-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .path-line {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar-note {
+        margin-left: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="brand-row">
+        <div class="brand">
+          <div class="eyebrow">Batch Copy / Move</div>
+          <h1>Bubblecopy</h1>
+          <div class="subtitle">Default local web control for grouped copy and move jobs. Load CSV on startup, review the plan, then launch execution from the browser.</div>
+        </div>
+        <div class="phase-box">
+          <div class="phase-row">
+            <span>Phase</span>
+            <span class="phase-pill" id="phase-pill">Select</span>
+          </div>
+          <div class="selection-row">
+            <span>Selected tasks</span>
+            <strong id="selected-count">0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Workers</span>
+            <strong id="workers-count">0</strong>
+          </div>
+        </div>
+      </div>
+      <div class="message" id="message-box">Loading state...</div>
+      <div class="toolbar">
+        <button id="dry-run-btn">Dry Run</button>
+        <button id="execute-btn">Execute</button>
+        <button id="reset-btn" class="secondary">Return to Selection</button>
+        <span class="toolbar-note" id="toolbar-note">Selection is editable only in the choose phase.</span>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Groups</h2>
+            <div class="panel-subtitle">Ordered by first appearance in the CSV.</div>
+          </div>
+          <span class="pill" id="groups-count">0 groups</span>
+        </div>
+        <div class="group-list" id="group-list"></div>
+      </aside>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" id="tasks-title">Tasks</h2>
+            <div class="panel-subtitle" id="tasks-subtitle">Review source and target paths before running.</div>
+          </div>
+          <span class="pill" id="tasks-count">0 tasks</span>
+        </div>
+        <div class="main-grid">
+          <section class="summary-panel">
+            <div class="summary-top">
+              <span class="phase-pill" id="run-phase-pill">Idle</span>
+              <span class="pill" id="run-counter">0 / 0 completed</span>
+            </div>
+            <div class="progress-shell">
+              <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="count-grid">
+              <div class="count-card">
+                <div class="count-label">Success</div>
+                <div class="count-value" id="success-count">0</div>
+              </div>
+              <div class="count-card">
+                <div class="count-label">Failed</div>
+                <div class="count-value" id="failed-count">0</div>
+              </div>
+              <div class="count-card">
+                <div class="count-label">Skipped</div>
+                <div class="count-value" id="skipped-count">0</div>
+              </div>
+              <div class="count-card">
+                <div class="count-label">Planned work</div>
+                <div class="count-value" id="planned-count">0</div>
+              </div>
+            </div>
+            <div class="current-line" id="current-line">No execution updates yet.</div>
+          </section>
+          <div class="task-list" id="task-list"></div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <script>
+    const ui = {
+      snapshot: null,
+      activeGroup: null,
+      pollTimer: null,
+      busy: false
+    };
+
+    const el = {
+      phasePill: document.getElementById("phase-pill"),
+      runPhasePill: document.getElementById("run-phase-pill"),
+      selectedCount: document.getElementById("selected-count"),
+      workersCount: document.getElementById("workers-count"),
+      messageBox: document.getElementById("message-box"),
+      toolbarNote: document.getElementById("toolbar-note"),
+      dryRunBtn: document.getElementById("dry-run-btn"),
+      executeBtn: document.getElementById("execute-btn"),
+      resetBtn: document.getElementById("reset-btn"),
+      groupsCount: document.getElementById("groups-count"),
+      groupList: document.getElementById("group-list"),
+      tasksTitle: document.getElementById("tasks-title"),
+      tasksSubtitle: document.getElementById("tasks-subtitle"),
+      tasksCount: document.getElementById("tasks-count"),
+      runCounter: document.getElementById("run-counter"),
+      progressBar: document.getElementById("progress-bar"),
+      successCount: document.getElementById("success-count"),
+      failedCount: document.getElementById("failed-count"),
+      skippedCount: document.getElementById("skipped-count"),
+      plannedCount: document.getElementById("planned-count"),
+      currentLine: document.getElementById("current-line"),
+      taskList: document.getElementById("task-list")
+    };
+
+    async function request(method, url, body) {
+      const options = {
+        method,
+        headers: {}
+      };
+      if (body !== undefined) {
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(url, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = payload.error || ("Request failed with status " + response.status);
+        throw new Error(message);
+      }
+      return payload;
+    }
+
+    function schedulePoll() {
+      if (ui.pollTimer) {
+        clearTimeout(ui.pollTimer);
+      }
+      const delay = ui.snapshot && ui.snapshot.phase === "running" ? 450 : 2200;
+      ui.pollTimer = setTimeout(loadState, delay);
+    }
+
+    async function loadState() {
+      try {
+        const snapshot = await request("GET", "/api/state");
+        applySnapshot(snapshot);
+      } catch (error) {
+        el.messageBox.textContent = error.message;
+      } finally {
+        schedulePoll();
+      }
+    }
+
+    function applySnapshot(snapshot) {
+      ui.snapshot = snapshot;
+      ensureActiveGroup(snapshot);
+      renderHeader(snapshot);
+      renderGroups(snapshot);
+      renderTasks(snapshot);
+      renderControls(snapshot);
+    }
+
+    function ensureActiveGroup(snapshot) {
+      if (!snapshot.groups || snapshot.groups.length === 0) {
+        ui.activeGroup = null;
+        return;
+      }
+
+      if (ui.activeGroup) {
+        const exists = snapshot.groups.some((group) => group.name === ui.activeGroup);
+        if (exists) {
+          return;
+        }
+      }
+
+      ui.activeGroup = snapshot.groups[0].name;
+    }
+
+    function renderHeader(snapshot) {
+      const phaseLabel = formatPhase(snapshot.phase);
+      const plannedCount = snapshot.tasks.filter((task) => task.status === "planned").length;
+
+      el.phasePill.textContent = phaseLabel;
+      el.runPhasePill.textContent = phaseLabel;
+      el.selectedCount.textContent = String(snapshot.selectedCount);
+      el.workersCount.textContent = String(snapshot.workers);
+      el.messageBox.textContent = snapshot.message || "Ready.";
+      el.groupsCount.textContent = snapshot.groups.length + " groups";
+      el.runCounter.textContent = snapshot.runDone + " / " + snapshot.runTotal + " completed";
+      el.successCount.textContent = String(snapshot.successCount);
+      el.failedCount.textContent = String(snapshot.failedCount);
+      el.skippedCount.textContent = String(snapshot.skippedCount);
+      el.plannedCount.textContent = String(plannedCount);
+      el.progressBar.style.width = Math.round(snapshot.executionPercent * 100) + "%";
+      el.currentLine.textContent = snapshot.lastUpdate || "No execution updates yet.";
+    }
+
+    function renderGroups(snapshot) {
+      el.groupList.innerHTML = "";
+
+      if (!snapshot.groups.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = "No groups loaded from the CSV.";
+        el.groupList.appendChild(empty);
+        return;
+      }
+
+      snapshot.groups.forEach((group) => {
+        const groupButton = document.createElement("div");
+        groupButton.className = "group-item" + (group.name === ui.activeGroup ? " active" : "");
+        groupButton.addEventListener("click", () => {
+          ui.activeGroup = group.name;
+          renderGroups(snapshot);
+          renderTasks(snapshot);
+        });
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "group-check";
+        checkbox.checked = group.selectedCount === group.taskIndexes.length && group.taskIndexes.length > 0;
+        checkbox.indeterminate = group.selectedCount > 0 && group.selectedCount < group.taskIndexes.length;
+        checkbox.disabled = snapshot.phase !== "select" || ui.busy;
+        checkbox.addEventListener("click", (event) => event.stopPropagation());
+        checkbox.addEventListener("change", (event) => {
+          event.stopPropagation();
+          toggleGroup(group);
+        });
+
+        const content = document.createElement("div");
+        const name = document.createElement("div");
+        name.className = "group-name";
+        name.textContent = group.name;
+        const meta = document.createElement("div");
+        meta.className = "group-meta";
+        meta.textContent = group.selectedCount + " / " + group.taskIndexes.length + " selected";
+        content.appendChild(name);
+        content.appendChild(meta);
+
+        const count = document.createElement("span");
+        count.className = "pill";
+        count.textContent = group.taskIndexes.length + " tasks";
+
+        groupButton.appendChild(checkbox);
+        groupButton.appendChild(content);
+        groupButton.appendChild(count);
+        el.groupList.appendChild(groupButton);
+      });
+    }
+
+    function renderTasks(snapshot) {
+      const group = snapshot.groups.find((item) => item.name === ui.activeGroup) || snapshot.groups[0] || null;
+      const taskIndexes = group ? group.taskIndexes : [];
+      const tasks = taskIndexes.map((index) => snapshot.tasks[index]).filter(Boolean);
+
+      el.tasksTitle.textContent = group ? "Tasks / " + group.name : "Tasks";
+      el.tasksSubtitle.textContent = group ? "Selection and status for the active group." : "No active group.";
+      el.tasksCount.textContent = tasks.length + " tasks";
+      el.taskList.innerHTML = "";
+
+      if (!tasks.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = "No tasks available in this group.";
+        el.taskList.appendChild(empty);
+        return;
+      }
+
+      tasks.forEach((task) => {
+        const card = document.createElement("article");
+        card.className = "task-card";
+
+        const top = document.createElement("div");
+        top.className = "task-top";
+
+        const left = document.createElement("div");
+        left.className = "task-left";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "task-check";
+        checkbox.checked = task.selected;
+        checkbox.disabled = snapshot.phase !== "select" || ui.busy;
+        checkbox.addEventListener("change", () => toggleTask(task.index));
+        left.appendChild(checkbox);
+
+        left.appendChild(makeBadge("op-badge " + opClass(task.op), task.op));
+        left.appendChild(makeBadge("status-badge " + statusClass(task.status), task.status || "pending"));
+        if (task.clearTarget) {
+          left.appendChild(makeBadge("pill", "clear target"));
+        }
+
+        const indexBadge = makeBadge("pill", "task " + task.index);
+        top.appendChild(left);
+        top.appendChild(indexBadge);
+
+        const paths = document.createElement("div");
+        paths.className = "task-paths";
+        paths.appendChild(makePathLine("from", task.sourcePath));
+        paths.appendChild(makePathLine("to", task.targetPath));
+
+        card.appendChild(top);
+        card.appendChild(paths);
+
+        if (task.message) {
+          const message = document.createElement("div");
+          message.className = "task-message";
+          message.textContent = task.message;
+          card.appendChild(message);
+        }
+
+        el.taskList.appendChild(card);
+      });
+    }
+
+    function renderControls(snapshot) {
+      const canSelect = snapshot.phase === "select" && !ui.busy;
+      const canDryRun = canSelect && snapshot.selectedCount > 0;
+      const canExecute = snapshot.phase === "dry-run" && !ui.busy;
+      const canReset = snapshot.phase !== "select" && snapshot.phase !== "running" && !ui.busy;
+
+      el.dryRunBtn.disabled = !canDryRun;
+      el.executeBtn.disabled = !canExecute;
+      el.resetBtn.disabled = !canReset;
+
+      if (snapshot.phase === "running") {
+        el.toolbarNote.textContent = "Execution is running. Selection stays locked until the run finishes.";
+      } else if (snapshot.phase === "dry-run") {
+        el.toolbarNote.textContent = "Dry-run is ready. Execute or return to the selection phase.";
+      } else if (snapshot.phase === "result") {
+        el.toolbarNote.textContent = "Execution finished. Review the result or return to the selection phase.";
+      } else {
+        el.toolbarNote.textContent = "Selection is editable only in the choose phase.";
+      }
+    }
+
+    function makeBadge(className, text) {
+      const node = document.createElement("span");
+      node.className = className;
+      node.textContent = text;
+      return node;
+    }
+
+    function makePathLine(label, value) {
+      const line = document.createElement("div");
+      line.className = "path-line";
+
+      const left = document.createElement("div");
+      left.className = "path-label";
+      left.textContent = label;
+
+      const right = document.createElement("div");
+      right.className = "path-value";
+      right.textContent = value || "-";
+
+      line.appendChild(left);
+      line.appendChild(right);
+      return line;
+    }
+
+    function opClass(op) {
+      return op === "move" ? "op-move" : "op-copy";
+    }
+
+    function statusClass(status) {
+      switch (status) {
+        case "planned":
+          return "status-planned";
+        case "success":
+          return "status-success";
+        case "failed":
+          return "status-failed";
+        case "skipped":
+          return "status-skipped";
+        default:
+          return "status-pending";
+      }
+    }
+
+    function formatPhase(phase) {
+      switch (phase) {
+        case "dry-run":
+          return "Dry Run";
+        case "running":
+          return "Running";
+        case "result":
+          return "Result";
+        default:
+          return "Select";
+      }
+    }
+
+    function selectedIndexes(snapshot) {
+      return snapshot.tasks.filter((task) => task.selected).map((task) => task.index);
+    }
+
+    async function toggleTask(taskIndex) {
+      if (!ui.snapshot || ui.snapshot.phase !== "select" || ui.busy) {
+        return;
+      }
+
+      const next = new Set(selectedIndexes(ui.snapshot));
+      if (next.has(taskIndex)) {
+        next.delete(taskIndex);
+      } else {
+        next.add(taskIndex);
+      }
+
+      await applySelection(Array.from(next).sort((a, b) => a - b));
+    }
+
+    async function toggleGroup(group) {
+      if (!ui.snapshot || ui.snapshot.phase !== "select" || ui.busy) {
+        return;
+      }
+
+      const next = new Set(selectedIndexes(ui.snapshot));
+      const allSelected = group.taskIndexes.length > 0 && group.taskIndexes.every((taskIndex) => next.has(taskIndex));
+      group.taskIndexes.forEach((taskIndex) => {
+        if (allSelected) {
+          next.delete(taskIndex);
+        } else {
+          next.add(taskIndex);
+        }
+      });
+
+      await applySelection(Array.from(next).sort((a, b) => a - b));
+    }
+
+    async function applySelection(selected) {
+      ui.busy = true;
+      renderControls(ui.snapshot);
+      try {
+        const snapshot = await request("POST", "/api/selection", { selected });
+        applySnapshot(snapshot);
+      } catch (error) {
+        el.messageBox.textContent = error.message;
+      } finally {
+        ui.busy = false;
+        if (ui.snapshot) {
+          renderControls(ui.snapshot);
+        }
+      }
+    }
+
+    async function runAction(url) {
+      if (!ui.snapshot || ui.busy) {
+        return;
+      }
+
+      ui.busy = true;
+      renderControls(ui.snapshot);
+      try {
+        const snapshot = await request("POST", url);
+        applySnapshot(snapshot);
+      } catch (error) {
+        el.messageBox.textContent = error.message;
+      } finally {
+        ui.busy = false;
+        if (ui.snapshot) {
+          renderControls(ui.snapshot);
+        }
+      }
+    }
+
+    el.dryRunBtn.addEventListener("click", () => runAction("/api/dry-run"));
+    el.executeBtn.addEventListener("click", () => runAction("/api/execute"));
+    el.resetBtn.addEventListener("click", () => runAction("/api/reset"));
+
+    loadState();
+  </script>
+</body>
+</html>

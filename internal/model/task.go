@@ -31,7 +31,7 @@ type Task struct {
 }
 
 type GroupView struct {
-	Name          string
-	TaskIndexes   []int
-	SelectedCount int
+	Name          string `json:"name"`
+	TaskIndexes   []int  `json:"taskIndexes"`
+	SelectedCount int    `json:"selectedCount"`
 }
