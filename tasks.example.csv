@@ -2,5 +2,10 @@ source,target,op,clear_target,group
 ./input/a.txt,./output/docs.txt,copy,FALSE,docs
 ./input/folder,./archive,move,FALSE,archive
 ./input/image.png,./output/images,copy,TRUE,media
+C:\Users\15771\Documents\tmp\源\文件夹,C:\Users\15771\Documents\tmp\目标\文件夹,copy,TRUE,TD
+C:\Users\15772\Documents\tmp\源\文件\test.txt,C:\Users\15772\Documents\tmp\目标\文件\test.txt,copy,FALSE,TD
+C:\Users\15772\Documents\tmp\源\文件夹,C:\Users\15772\Documents\tmp\目标\文件夹,copy,TRUE,TD
+C:\Users\15773\Documents\tmp\源\文件\test.txt,C:\Users\15773\Documents\tmp\目标\文件\test.txt,copy,FALSE,TD
+C:\Users\15773\Documents\tmp\源\文件夹,C:\Users\15773\Documents\tmp\目标\文件夹,copy,TRUE,TD
 C:\Users\15774\Documents\tmp\源\文件\test.txt,C:\Users\15774\Documents\tmp\目标\文件\test.txt,copy,FALSE,TD
 C:\Users\15774\Documents\tmp\源\文件夹,C:\Users\15774\Documents\tmp\目标\文件夹,copy,TRUE,TD

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -276,5 +277,35 @@ func TestAnimationTickStopsAfterResultPhase(t *testing.T) {
 	}
 	if ui.animFrame != before {
 		t.Fatalf("结果阶段不应推进 animFrame, got=%d want=%d", ui.animFrame, before)
+	}
+}
+
+func TestRenderTasksClipsToPanelHeight(t *testing.T) {
+	tasks := make([]model.Task, 12)
+	for i := range tasks {
+		tasks[i] = model.Task{
+			Index:  i,
+			Group:  "g1",
+			Source: fmt.Sprintf("src-%02d.txt", i),
+			Target: fmt.Sprintf("dst-%02d.txt", i),
+			Op:     model.OpCopy,
+		}
+	}
+
+	ui := newModel(tasks, 1)
+	ui.focus = focusTasks
+	ui.groupCursor = 0
+	ui.taskCursor = 8
+	ui.width = 80
+	ui.height = 20
+
+	rendered := ui.renderTasks()
+	lines := strings.Split(rendered, "\n")
+	max := ui.panelContentHeight()
+	if max > 0 && len(lines) > max {
+		t.Fatalf("renderTasks() 行数 = %d, 期望 <= %d", len(lines), max)
+	}
+	if !strings.Contains(rendered, "src-08.txt") {
+		t.Fatalf("renderTasks() 未显示焦点任务内容: %q", rendered)
 	}
 }

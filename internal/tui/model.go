@@ -638,7 +638,27 @@ func (m *uiModel) renderGroups() string {
 	if len(m.groups) == 0 {
 		lines = append(lines, "(no groups)")
 	}
-	return strings.Join(lines, "\n")
+
+	contentLines := lines[2:]
+	focusStart := -1
+	if m.focus == focusGroups && m.groupCursor >= 0 && m.groupCursor < len(contentLines) {
+		focusStart = m.groupCursor
+	}
+
+	if len(m.groups) == 0 {
+		contentLines = lines[2:]
+		focusStart = -1
+	}
+
+	contentHeight := m.panelContentHeight()
+	if contentHeight > 0 {
+		if contentHeight <= 2 {
+			return strings.Join(lines[:contentHeight], "\n")
+		}
+		contentLines = sliceLinesForFocus(contentLines, focusStart, focusStart, contentHeight-2)
+	}
+
+	return strings.Join(append(lines[:2], contentLines...), "\n")
 }
 
 func (m *uiModel) renderGroupSelectionMark(group model.GroupView, focused bool) string {
@@ -683,6 +703,10 @@ func (m *uiModel) renderTasks() string {
 	}
 
 	contentWidth := m.taskPanelContentWidth()
+	contentLines := make([]string, 0, len(group.TaskIndexes)*3)
+	focusStart := -1
+	focusEnd := -1
+
 	for row, taskIndex := range group.TaskIndexes {
 		task := m.tasks[taskIndex]
 		focused := m.focus == focusTasks && row == m.taskCursor
@@ -700,15 +724,30 @@ func (m *uiModel) renderTasks() string {
 		if focused {
 			line = m.animatedLine(line)
 		}
-		lines = append(lines, line)
-		lines = append(lines, wrapLabeledText("    from: ", m.taskSourcePath(taskIndex), contentWidth)...)
-		lines = append(lines, wrapLabeledText("    to:   ", m.taskTargetPath(taskIndex), contentWidth)...)
+		block := []string{line}
+		block = append(block, wrapLabeledText("    from: ", m.taskSourcePath(taskIndex), contentWidth)...)
+		block = append(block, wrapLabeledText("    to:   ", m.taskTargetPath(taskIndex), contentWidth)...)
 
 		if task.Message != "" && m.phase != phaseSelect {
-			lines = append(lines, wrapLabeledText("    ", task.Message, contentWidth)...)
+			block = append(block, wrapLabeledText("    ", task.Message, contentWidth)...)
 		}
+
+		if focused {
+			focusStart = len(contentLines)
+			focusEnd = focusStart + len(block) - 1
+		}
+		contentLines = append(contentLines, block...)
 	}
 
+	contentHeight := m.panelContentHeight()
+	if contentHeight > 0 {
+		if contentHeight <= 2 {
+			return strings.Join(lines[:contentHeight], "\n")
+		}
+		contentLines = sliceLinesForFocus(contentLines, focusStart, focusEnd, contentHeight-2)
+	}
+
+	lines = append(lines, contentLines...)
 	return strings.Join(lines, "\n")
 }
 
@@ -881,6 +920,42 @@ func (m *uiModel) taskPanelContentWidth() int {
 	return panelContentWidth(rightWidth)
 }
 
+func (m *uiModel) bodyPanelHeight() int {
+	if m.height <= 0 {
+		return 0
+	}
+
+	logoHeight := lipgloss.Height(m.renderLogo())
+	runningHeight := 0
+	if m.phase == phaseRunning {
+		runningHeight = lipgloss.Height(m.renderRunningHeader())
+	}
+	footerHeight := lipgloss.Height(m.renderFooter())
+
+	separatorCount := 2
+	if m.phase == phaseRunning {
+		separatorCount = 3
+	}
+
+	height := m.height - logoHeight - runningHeight - footerHeight - separatorCount
+	if height < 0 {
+		return 0
+	}
+	return height
+}
+
+func (m *uiModel) panelContentHeight() int {
+	panelHeight := m.bodyPanelHeight()
+	if panelHeight <= 0 {
+		return 0
+	}
+	contentHeight := panelHeight - 2
+	if contentHeight < 1 {
+		return 1
+	}
+	return contentHeight
+}
+
 func (m *uiModel) renderFooter() string {
 	var help string
 	switch m.phase {
@@ -905,6 +980,49 @@ func panelContentWidth(panelWidth int) int {
 		return 20
 	}
 	return width
+}
+
+func sliceLinesForFocus(lines []string, focusStart int, focusEnd int, maxLines int) []string {
+	if maxLines <= 0 || len(lines) <= maxLines {
+		return lines
+	}
+
+	if focusStart < 0 || focusStart >= len(lines) || focusEnd < focusStart {
+		focusStart = 0
+		focusEnd = 0
+	}
+	if focusEnd >= len(lines) {
+		focusEnd = len(lines) - 1
+	}
+
+	focusHeight := focusEnd - focusStart + 1
+	if focusHeight >= maxLines {
+		if focusStart+maxLines > len(lines) {
+			focusStart = len(lines) - maxLines
+		}
+		return lines[focusStart : focusStart+maxLines]
+	}
+
+	start := focusStart - (maxLines-focusHeight)/2
+	if start < 0 {
+		start = 0
+	}
+	maxStart := len(lines) - maxLines
+	if start > maxStart {
+		start = maxStart
+	}
+	if focusStart < start {
+		start = focusStart
+	} else if focusEnd >= start+maxLines {
+		start = focusEnd - maxLines + 1
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start > maxStart {
+		start = maxStart
+	}
+	return lines[start : start+maxLines]
 }
 
 func (m *uiModel) taskSourcePath(taskIndex int) string {
