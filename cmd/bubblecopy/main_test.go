@@ -57,101 +57,127 @@ func TestFindDefaultConfigReturnsFalseWhenMissing(t *testing.T) {
 	}
 }
 
-func TestRunFallsBackToTUIWhenDefaultWebFails(t *testing.T) {
+func TestParseOptionsDefaults(t *testing.T) {
 	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	webCalls := 0
-	tuiCalls := 0
+	opts, err := parseOptions(nil, &stdout)
+	if err != nil {
+		t.Fatalf("parseOptions returned error: %v", err)
+	}
 
-	code := run([]string{"-config", "tasks.csv"}, dependencies{
-		stdout: &stdout,
-		stderr: &stderr,
-		loadCSV: func(path string) ([]model.Task, error) {
-			return []model.Task{{Index: 0, Status: model.StatusSuccess}}, nil
-		},
-		runWeb: func(tasks []model.Task, workers int, listenAddr string, disableBrowser bool) error {
-			webCalls++
-			return os.ErrInvalid
-		},
-		runTUI: func(tasks []model.Task, workers int) ([]model.Task, error) {
-			tuiCalls++
-			return tasks, nil
-		},
-	})
-
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0", code)
+	if opts.configPath != "" {
+		t.Fatalf("configPath = %q, want empty", opts.configPath)
 	}
-	if webCalls != 1 {
-		t.Fatalf("webCalls = %d, want 1", webCalls)
+	if opts.workers != 4 {
+		t.Fatalf("workers = %d, want 4", opts.workers)
 	}
-	if tuiCalls != 1 {
-		t.Fatalf("tuiCalls = %d, want 1", tuiCalls)
-	}
-	if !strings.Contains(stderr.String(), "回退到 TUI") {
-		t.Fatalf("stderr = %q, want fallback message", stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "汇总: 成功=1") {
-		t.Fatalf("stdout = %q, want summary", stdout.String())
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 
-func TestRunExplicitWebDoesNotFallback(t *testing.T) {
+func TestParseOptionsRejectsUnknownFlag(t *testing.T) {
 	var stderr bytes.Buffer
-	tuiCalls := 0
+	_, err := parseOptions([]string{"-unknown"}, &stderr)
+	if err == nil {
+		t.Fatal("expected parseOptions to fail for unknown flag")
+	}
+	if !strings.Contains(stderr.String(), usageLine) {
+		t.Fatalf("stderr = %q, want usage line", stderr.String())
+	}
+}
 
-	code := run([]string{"-config", "tasks.csv", "-ui", "web"}, dependencies{
-		stderr: &stderr,
-		loadCSV: func(path string) ([]model.Task, error) {
-			return []model.Task{{Index: 0}}, nil
-		},
-		runWeb: func(tasks []model.Task, workers int, listenAddr string, disableBrowser bool) error {
-			return os.ErrPermission
-		},
-		runTUI: func(tasks []model.Task, workers int) ([]model.Task, error) {
-			tuiCalls++
-			return tasks, nil
-		},
-	})
+func TestResolveConfigPathReturnsExplicitPath(t *testing.T) {
+	got, err := resolveConfigPath("custom.csv")
+	if err != nil {
+		t.Fatalf("resolveConfigPath returned error: %v", err)
+	}
+	if got != "custom.csv" {
+		t.Fatalf("got %q, want %q", got, "custom.csv")
+	}
+}
 
+func TestResolveConfigPathFindsTasksCSVInWorkingDir(t *testing.T) {
+	dir := t.TempDir()
+	withWorkingDir(t, dir)
+
+	expected := filepath.Join(dir, "tasks.csv")
+	if err := os.WriteFile(expected, []byte("source,target,op,clear_target,group\n"), 0o644); err != nil {
+		t.Fatalf("write tasks.csv: %v", err)
+	}
+
+	got, err := resolveConfigPath("")
+	if err != nil {
+		t.Fatalf("resolveConfigPath returned error: %v", err)
+	}
+	if got != expected {
+		t.Fatalf("got %q, want %q", got, expected)
+	}
+}
+
+func TestRunReturnsUsageOnFlagError(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"-unknown"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), usageLine) {
+		t.Fatalf("stderr = %q, want usage line", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunReturnsLoadCSVErrorForMissingConfig(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	missingPath := filepath.Join(t.TempDir(), "missing.csv")
+	code := run([]string{"-config", missingPath}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
-	if tuiCalls != 0 {
-		t.Fatalf("tuiCalls = %d, want 0", tuiCalls)
+	if !strings.Contains(stderr.String(), "Failed to load CSV:") {
+		t.Fatalf("stderr = %q, want load failure message", stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "Web UI 启动失败") {
-		t.Fatalf("stderr = %q, want web failure message", stderr.String())
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 
-func TestRunPassesNoBrowserToWeb(t *testing.T) {
-	called := false
+func TestPrintSummaryCountsStatuses(t *testing.T) {
+	var out bytes.Buffer
 
-	code := run([]string{"-config", "tasks.csv", "-no-browser"}, dependencies{
-		loadCSV: func(path string) ([]model.Task, error) {
-			return []model.Task{{Index: 0}}, nil
-		},
-		runWeb: func(tasks []model.Task, workers int, listenAddr string, disableBrowser bool) error {
-			called = true
-			if !disableBrowser {
-				t.Fatalf("disableBrowser = false, want true")
-			}
-			if listenAddr != "127.0.0.1:0" {
-				t.Fatalf("listenAddr = %q, want default listen address", listenAddr)
-			}
-			return nil
-		},
-		runTUI: func(tasks []model.Task, workers int) ([]model.Task, error) {
-			t.Fatalf("runTUI should not be called")
-			return nil, nil
-		},
+	printSummary(&out, []model.Task{
+		{Status: model.StatusSuccess},
+		{Status: model.StatusSuccess},
+		{Status: model.StatusFailed},
+		{Status: model.StatusSkipped},
 	})
 
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0", code)
+	got := out.String()
+	want := "Result: Success=2 Failed=1 Skipped=1\n"
+	if got != want {
+		t.Fatalf("summary = %q, want %q", got, want)
 	}
-	if !called {
-		t.Fatal("expected runWeb to be called")
+}
+
+func withWorkingDir(t *testing.T, dir string) {
+	t.Helper()
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
 	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir %q: %v", dir, err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatalf("restore wd to %q: %v", oldDir, err)
+		}
+	})
 }
