@@ -336,7 +336,6 @@ func (ui *UI) refresh() {
 
 	// Update Tasks Table
 	ui.refreshTasksTable()
-	ui.app.Draw()
 }
 
 func (ui *UI) refreshTasksTable() {
